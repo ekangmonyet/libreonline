@@ -16,7 +16,7 @@ int main()
     Model player = LoadModel("assets/Mecha01.obj");
     Texture2D player_t = LoadTexture("assets/Mecha01.png");
     Vector3 player_m {};
-    float player_r = 0;
+    int player_r = 0;
     player.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = player_t;
 
     SetCameraMode(camera, CAMERA_THIRD_PERSON);
@@ -29,12 +29,15 @@ int main()
         if (IsKeyDown(KEY_S))
             forward = -1;
         if (IsKeyDown(KEY_A))
-            player_r += 10;
-        if (IsKeyDown(KEY_D))
+            player_r = (player_r + 10) % 360;
+        if (IsKeyDown(KEY_D)) {
             player_r -= 10;
+            if (player_r < 0)
+                player_r += 360;
+        }
 
-        player_m.x += forward * 1.0f * std::cos(player_r * PI / 180);
-        player_m.z -= forward * 1.0f * std::sin(player_r * PI / 180);
+        player_m.x += forward * 1.0f * std::cos((float) player_r * PI / 180.0f);
+        player_m.z -= forward * 1.0f * std::sin((float) player_r * PI / 180.0f);
 
         camera.target = player_m;
 
