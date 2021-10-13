@@ -1,6 +1,9 @@
 #include <cmath>
 #include "raylib.h"
 
+#define IMPLEMENTATION
+#include "player.hpp"
+
 
 int main()
 {
@@ -13,11 +16,8 @@ int main()
         .projection = CAMERA_PERSPECTIVE,
     };
 
-    Model player = LoadModel("assets/Mecha01.obj");
-    Texture2D player_t = LoadTexture("assets/Mecha01.png");
-    Vector3 player_m {};
-    int player_r = 0;
-    player.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = player_t;
+    Player player;
+    camera.target = player.Position;
 
     SetCameraMode(camera, CAMERA_THIRD_PERSON);
     SetTargetFPS(30);
@@ -29,17 +29,19 @@ int main()
         if (IsKeyDown(KEY_S))
             forward = -1;
         if (IsKeyDown(KEY_A))
-            player_r = (player_r + 10) % 360;
+            player.Rotation = (player.Rotation + 10) % 360;
         if (IsKeyDown(KEY_D)) {
-            player_r -= 10;
-            if (player_r < 0)
-                player_r += 360;
+            player.Rotation -= 10;
+            if (player.Rotation < 0)
+                player.Rotation += 360;
         }
 
-        player_m.x += forward * 1.0f * std::cos((float) player_r * PI / 180.0f);
-        player_m.z -= forward * 1.0f * std::sin((float) player_r * PI / 180.0f);
+        player.Position.x += forward * 1.0f
+            * std::cos((float) player.Rotation * PI / 180.0f);
+        player.Position.z -= forward * 1.0f
+            * std::sin((float) player.Rotation * PI / 180.0f);
 
-        camera.target = player_m;
+        camera.target = player.Position;
 
         UpdateCamera(&camera);
 
@@ -47,7 +49,7 @@ int main()
         BeginMode3D(camera);
         ClearBackground(RAYWHITE);
 
-        DrawModelEx(player, player_m, {0.0f, 1.0f, 0.0f}, player_r, {1.0f, 1.0f, 1.0f}, WHITE);
+        player.Draw();
 
         DrawGrid(100, 1.0f);
         EndMode3D();
@@ -56,7 +58,6 @@ int main()
 
     }
 
-    UnloadModel(player);
     CloseWindow();
 
     return 0;
