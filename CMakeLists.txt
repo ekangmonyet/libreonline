@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.9)
 
 project("libreONLINE")
 include_directories(raylib/include
+                    nbnet/include
                     src
                     )
 
@@ -18,4 +19,6 @@ target_link_libraries(libreonline
                     pthread
                     )
 
-
+add_executable(loserver
+                    src/server.cpp
+                    )

@@ -1,12 +1,45 @@
 #include <cmath>
+#include <iostream>
+#include <unistd.h>
+
 #include "raylib.h"
 
 #define IMPLEMENTATION
 #include "player.hpp"
 
+#define NBN_LogInfo(...)    {puts("[NET/INFO] "); printf(__VA_ARGS__); putchar('\n');}
+#define NBN_LogDebug(...)   {puts("[NET/DEBUG] "); printf(__VA_ARGS__); putchar('\n');}
+#define NBN_LogError(...)   {puts("[NET/ERROR] "); printf(__VA_ARGS__); putchar('\n');}
+#define NBN_LogTrace(...)   {}
+#define NBNET_IMPL
+#include "net.hpp"
+
+#define MS * 1000
 
 int main()
 {
+    NBN_GameClient_Init(NET_PROTO, "127.0.0.1", NET_PORT);
+    NBN_GameClient_RegisterMessage((uint8_t) NetType::ARRIVE,
+            (NBN_MessageBuilder)    NetArrive::New,
+            (NBN_MessageDestructor) NetArrive::Destroy,
+            (NBN_MessageSerializer) NetArrive::Serialize);
+
+    if (NBN_GameClient_Start() < 0) {
+        NBN_LogError("Start failed.");
+        NBN_GameClient_Deinit();
+    }
+
+    // TODO: Check for connection!
+
+    NetArrive *pkt = NetArrive::New();
+    NBN_OutgoingMessage *msg = NBN_GameClient_CreateMessage(
+            (uint8_t) NetType::ARRIVE, pkt);
+    NBN_GameClient_SendReliableMessage(msg);
+    NBN_GameClient_SendPackets();
+
+    std::cout << "Finished" << std::endl;
+
+
     InitWindow(1280, 720, "libreONLINE");
     Camera camera {
         .position = {20.0f, 20.0f, 20.0f},
