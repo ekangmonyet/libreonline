@@ -16,6 +16,15 @@
 
 #define MS * 1000
 
+int handle_message()
+{
+    NBN_MessageInfo msg_info = NBN_GameClient_GetMessageInfo();
+    if (msg_info.type != (uint8_t) NetType::ARRIVE)
+        return 1;
+    std::cout << "ARRIVE" <<std::endl;
+    return 0;
+}
+
 int main()
 {
     NBN_GameClient_Init(NET_PROTO, "127.0.0.1", NET_PORT);
@@ -39,6 +48,7 @@ int main()
 
     std::cout << "Finished" << std::endl;
 
+    SetTraceLogLevel(LOG_WARNING);
 
     InitWindow(1280, 720, "libreONLINE");
     Camera camera {
@@ -56,6 +66,29 @@ int main()
     SetTargetFPS(30);
 
     while (!WindowShouldClose()) {
+        int ev, err = 0;
+        while ((ev = NBN_GameClient_Poll()) != NBN_NO_EVENT) {
+            if (ev < 0) {
+                NBN_LogError("Poll failed.");
+                err = 1;
+                break;
+            }
+            switch (ev) {
+            case NBN_DISCONNECTED:
+                NBN_LogError("Disconnected.");
+                err = 1;
+                break;
+            case NBN_MESSAGE_RECEIVED:
+                handle_message();
+                break;
+            }
+            if (err != 0)
+                break;
+        }
+
+        if (err != 0)
+            break;
+
         int forward = 0;
         if (IsKeyDown(KEY_W))
             forward = 1;
@@ -92,6 +125,9 @@ int main()
     }
 
     CloseWindow();
+
+    NBN_GameClient_Disconnect();
+    NBN_GameClient_Stop();
 
     return 0;
 }
