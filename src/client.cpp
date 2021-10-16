@@ -24,29 +24,55 @@ Player *me = NULL;
 int handle_message()
 {
     NBN_MessageInfo msg_info = NBN_GameClient_GetMessageInfo();
-    if (msg_info.type != (uint8_t) NetType::Arrive)
-        return 1;
-    NetArrive *msg = (NetArrive *) msg_info.data;
+    switch ((NetType) msg_info.type) {
+    case NetType::Arrive:
+    {
+        NetArrive *msg = (NetArrive *) msg_info.data;
 
-    auto p = new Player();
-    activePlayers.push_back(p);
-    p->Id = msg->PlayerId;
+        auto p = new Player();
+        activePlayers.push_back(p);
+        p->Id = msg->PlayerId;
 
-    if (msg->IsYou) {
-        me = activePlayers.back();
-        p->Tint = RED;
+        if (msg->IsYou) {
+            me = activePlayers.back();
+            p->Tint = RED;
+        }
+        break;
+    }
+    case NetType::Move:
+    {
+        NetMove *msg = (NetMove *) msg_info.data;
+
+        Player *p = NULL;
+        for (auto player:activePlayers)
+            if (player->Id == msg->PlayerId) {
+                p = player;
+                break;
+            }
+        // ASSUME p not NULL so we can catch immediately when it happens
+        p->Position = {msg->X, msg->Y, msg->Z};
+        p->Rotation = msg->Rot;
+        break;
+    }
     }
 
     return 0;
 }
 
+#define REGISTER(T) { \
+    NBN_GameClient_RegisterMessage((uint8_t) NetType::T,    \
+        (NBN_MessageBuilder)    Net##T::New,                \
+        (NBN_MessageDestructor) Net##T::Destroy,            \
+        (NBN_MessageSerializer) Net##T::Serialize);         \
+}
+
+
 int main()
 {
     NBN_GameClient_Init(NET_PROTO, "127.0.0.1", NET_PORT);
-    NBN_GameClient_RegisterMessage((uint8_t) NetType::Arrive,
-            (NBN_MessageBuilder)    NetArrive::New,
-            (NBN_MessageDestructor) NetArrive::Destroy,
-            (NBN_MessageSerializer) NetArrive::Serialize);
+
+    REGISTER(Arrive);
+    REGISTER(Move);
 
     if (NBN_GameClient_Start() < 0) {
         NBN_LogError("Start failed.");
@@ -145,6 +171,16 @@ int main()
                 * std::cos((float) me->Rotation * PI / 180.0f);
             me->Position.z -= forward * 1.0f
                 * std::sin((float) me->Rotation * PI / 180.0f);
+
+            // announce movement
+            NetMove *pkt = NetMove::New();
+            pkt->X = me->Position.x;
+            pkt->Y = me->Position.y;
+            pkt->Z = me->Position.z;
+            pkt->Rot = me->Rotation;
+            NBN_OutgoingMessage *msg = NBN_GameClient_CreateMessage(
+                    (uint8_t) NetType::Move, pkt);
+            NBN_GameClient_SendReliableMessage(msg);
         }
         camera.target = me->Position;
 
@@ -162,6 +198,7 @@ int main()
         DrawFPS(10, 10);
         EndDrawing();
 
+        NBN_GameClient_SendPackets();
     }
 
     CloseWindow();

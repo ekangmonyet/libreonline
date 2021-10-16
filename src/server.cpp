@@ -74,6 +74,37 @@ static void handle_new()
 
 static int handle_message()
 {
+    NBN_MessageInfo msg_info = NBN_GameServer_GetMessageInfo();
+    switch((NetType) msg_info.type) {
+    case NetType::Arrive:
+        break;
+    case NetType::Move:
+    {
+        int playerId = -1;
+        for (auto c: clients)
+            if (c.C == msg_info.sender) {
+                playerId = c.PlayerId;
+                break;
+            }
+        NetMove *msg = (NetMove *) msg_info.data;
+        // update player state
+        players[playerId].Position = {msg->X, msg->Y, msg->Z};
+        players[playerId].Rotation = msg->Rot;
+
+        // sanitize message before relay
+        msg->PlayerId = playerId;
+
+        // announce to other player
+        NBN_OutgoingMessage *m = NBN_GameServer_CreateMessage(
+                (uint8_t) NetType::Move, msg);
+        for (auto c: clients) {
+            if (c.PlayerId == playerId)
+                continue;
+            NBN_GameServer_SendReliableMessageTo(c.C, m);
+        }
+        break;
+    }
+    }
     return 0;
 }
 
@@ -90,6 +121,7 @@ int main()
     NBN_GameServer_Init(NET_PROTO, NET_PORT);
 
     REGISTER(Arrive);
+    REGISTER(Move);
 
     if (NBN_GameServer_Start() < 0) {
         NBN_LogError("Start failed.");

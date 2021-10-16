@@ -12,6 +12,7 @@
 
 enum class NetType {
     Arrive = 0,
+    Move,
 };
 
 class NetArrive {
@@ -21,6 +22,16 @@ public:
     static NetArrive *New();
     static void Destroy(NetArrive *);
     static int Serialize(NetArrive *, NBN_Stream *);
+};
+
+class NetMove {
+public:
+    unsigned int PlayerId;
+    float X, Y, Z;
+    unsigned int Rot;
+    static NetMove *New();
+    static void Destroy(NetMove *);
+    static int Serialize(NetMove *, NBN_Stream *);
 };
 
 #ifdef NET_IMPL
@@ -37,6 +48,19 @@ int NetArrive::Serialize(NetArrive *n, NBN_Stream *s)
     return 0;
 }
 
+
+NetMove *NetMove::New() { return new NetMove{}; }
+void NetMove::Destroy(NetMove *n) { delete n; }
+
+int NetMove::Serialize(NetMove *n, NBN_Stream *s)
+{
+    NBN_SerializeUInt(s, n->PlayerId, 0, UINTMAX);
+    NBN_SerializeFloat(s, n->X, -99999.0f, 99999.0f, 3);
+    NBN_SerializeFloat(s, n->Y, -99999.0f, 99999.0f, 3);
+    NBN_SerializeFloat(s, n->Z, -99999.0f, 99999.0f, 3);
+    NBN_SerializeUInt(s, n->Rot, 0, 360);
+    return 0;
+}
 #endif
 
 
