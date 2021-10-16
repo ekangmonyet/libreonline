@@ -58,6 +58,20 @@ int handle_message()
         p->Rotation = pos->Rot;
         break;
     }
+    case NetType::Leave:
+    {
+        NetMove *msg = (NetMove *) msg_info.data;
+
+        int i = -1;
+        for (auto player:activePlayers) {
+            i++;
+            if (player->Id == msg->PlayerId)
+                break;
+        }
+        // Same as L55
+        activePlayers.erase(activePlayers.begin() + i);
+        break;
+    }
     }
 
     return 0;
@@ -77,6 +91,7 @@ int main()
 
     REGISTER(Arrive);
     REGISTER(Move);
+    REGISTER(Leave);
 
     if (NBN_GameClient_Start() < 0) {
         NBN_LogError("Start failed.");

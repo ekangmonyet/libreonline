@@ -130,6 +130,7 @@ int main()
 
     REGISTER(Arrive);
     REGISTER(Move);
+    REGISTER(Leave);
 
     if (NBN_GameServer_Start() < 0) {
         NBN_LogError("Start failed.");
@@ -158,7 +159,14 @@ int main()
                 }
                 if (i != -1) {
                     std::cout << "Client gone: " << clients[i].C->id << std::endl;
+                    auto pkt = NetLeave::New();
+                    pkt->PlayerId = clients[i].PlayerId;
                     clients.erase(clients.begin() + i);
+                    auto msg = NBN_GameServer_CreateMessage(
+                            (uint8_t) NetType::Leave, pkt);
+                    // announce to other
+                    for (auto c: clients)
+                        NBN_GameServer_SendReliableMessageTo(c.C, msg);
                 }
                 break;
             }

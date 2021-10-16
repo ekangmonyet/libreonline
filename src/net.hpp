@@ -20,6 +20,7 @@ public:
 enum class NetType {
     Arrive = 0,
     Move,
+    Leave,
 };
 
 class NetArrive {
@@ -39,6 +40,14 @@ public:
     static NetMove *New();
     static void Destroy(NetMove *);
     static int Serialize(NetMove *, NBN_Stream *);
+};
+
+class NetLeave {
+public:
+    unsigned int PlayerId;
+    static NetLeave *New();
+    static void Destroy(NetLeave *);
+    static int Serialize(NetLeave *, NBN_Stream *);
 };
 
 #ifdef NET_IMPL
@@ -66,6 +75,17 @@ int NetMove::Serialize(NetMove *n, NBN_Stream *s)
     n->PosState.Serialize(s);
     return 0;
 }
+
+
+NetLeave *NetLeave::New() { return new NetLeave{}; }
+void NetLeave::Destroy(NetLeave *n) { delete n; }
+
+int NetLeave::Serialize(NetLeave *n, NBN_Stream *s)
+{
+    NBN_SerializeUInt(s, n->PlayerId, 0, UINTMAX);
+    return 0;
+}
+
 
 void _PosState::Serialize(NBN_Stream *s)
 {
