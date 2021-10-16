@@ -50,8 +50,9 @@ int handle_message()
                 break;
             }
         // ASSUME p not NULL so we can catch immediately when it happens
-        p->Position = {msg->X, msg->Y, msg->Z};
-        p->Rotation = msg->Rot;
+        _PosState *pos = &msg->PosState;
+        p->Position = {pos->X, pos->Y, pos->Z};
+        p->Rotation = pos->Rot;
         break;
     }
     }
@@ -174,10 +175,12 @@ int main()
 
             // announce movement
             NetMove *pkt = NetMove::New();
-            pkt->X = me->Position.x;
-            pkt->Y = me->Position.y;
-            pkt->Z = me->Position.z;
-            pkt->Rot = me->Rotation;
+            pkt->PosState = {
+                .X = me->Position.x,
+                .Y = me->Position.y,
+                .Z = me->Position.z,
+                .Rot = (unsigned int) me->Rotation,
+            };
             NBN_OutgoingMessage *msg = NBN_GameClient_CreateMessage(
                     (uint8_t) NetType::Move, pkt);
             NBN_GameClient_SendReliableMessage(msg);

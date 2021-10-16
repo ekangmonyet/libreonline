@@ -88,8 +88,9 @@ static int handle_message()
             }
         NetMove *msg = (NetMove *) msg_info.data;
         // update player state
-        players[playerId].Position = {msg->X, msg->Y, msg->Z};
-        players[playerId].Rotation = msg->Rot;
+        _PosState *posState = &msg->PosState;
+        players[playerId].Position = {posState->X, posState->Y, posState->Z};
+        players[playerId].Rotation = posState->Rot;
 
         // sanitize message before relay
         msg->PlayerId = playerId;

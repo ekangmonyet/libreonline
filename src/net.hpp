@@ -10,6 +10,13 @@
 #define NET_PORT    8787
 
 
+class _PosState {
+public:
+    float X, Y, Z;
+    unsigned int Rot;
+    void Serialize(NBN_Stream *);
+};
+
 enum class NetType {
     Arrive = 0,
     Move,
@@ -27,8 +34,7 @@ public:
 class NetMove {
 public:
     unsigned int PlayerId;
-    float X, Y, Z;
-    unsigned int Rot;
+    _PosState PosState;
     static NetMove *New();
     static void Destroy(NetMove *);
     static int Serialize(NetMove *, NBN_Stream *);
@@ -55,11 +61,16 @@ void NetMove::Destroy(NetMove *n) { delete n; }
 int NetMove::Serialize(NetMove *n, NBN_Stream *s)
 {
     NBN_SerializeUInt(s, n->PlayerId, 0, UINTMAX);
-    NBN_SerializeFloat(s, n->X, -99999.0f, 99999.0f, 3);
-    NBN_SerializeFloat(s, n->Y, -99999.0f, 99999.0f, 3);
-    NBN_SerializeFloat(s, n->Z, -99999.0f, 99999.0f, 3);
-    NBN_SerializeUInt(s, n->Rot, 0, 360);
+    n->PosState.Serialize(s);
     return 0;
+}
+
+void _PosState::Serialize(NBN_Stream *s)
+{
+    NBN_SerializeFloat(s, X, -99999.0f, 99999.0f, 3);
+    NBN_SerializeFloat(s, Y, -99999.0f, 99999.0f, 3);
+    NBN_SerializeFloat(s, Z, -99999.0f, 99999.0f, 3);
+    NBN_SerializeUInt(s, Rot, 0, 360);
 }
 #endif
 
