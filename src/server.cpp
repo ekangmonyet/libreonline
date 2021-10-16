@@ -58,6 +58,13 @@ static void handle_new()
         NetArrive *pkt = NetArrive::New();
         pkt->IsYou = false;
         pkt->PlayerId = other.PlayerId;
+        Player& p = players[other.PlayerId];
+        pkt->PosState = {
+            .X = p.Position.x,
+            .Y = p.Position.y,
+            .Z = p.Position.z,
+            .Rot = (unsigned int) p.Rotation,
+        };
 
         // to client
         NBN_OutgoingMessage *m = NBN_GameServer_CreateMessage(

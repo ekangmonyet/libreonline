@@ -32,6 +32,9 @@ int handle_message()
         auto p = new Player();
         activePlayers.push_back(p);
         p->Id = msg->PlayerId;
+        _PosState *pos = &msg->PosState;
+        p->Position = {pos->X, pos->Y, pos->Z};
+        p->Rotation = pos->Rot;
 
         if (msg->IsYou) {
             me = activePlayers.back();

@@ -26,6 +26,7 @@ class NetArrive {
 public:
     unsigned int PlayerId;
     bool IsYou;
+    _PosState PosState;
     static NetArrive *New();
     static void Destroy(NetArrive *);
     static int Serialize(NetArrive *, NBN_Stream *);
@@ -51,6 +52,7 @@ int NetArrive::Serialize(NetArrive *n, NBN_Stream *s)
 {
     NBN_SerializeUInt(s, n->PlayerId, 0, UINTMAX);
     NBN_SerializeBool(s, n->IsYou);
+    n->PosState.Serialize(s);
     return 0;
 }
 
