@@ -41,7 +41,7 @@ static void handle_new()
         pkt->IsYou = false;
         pkt->PlayerId = p.Id;
         om = NBN_GameServer_CreateMessage(
-                (uint8_t) NetType::ARRIVE, pkt);
+                (uint8_t) NetType::Arrive, pkt);
     }
 
     {
@@ -50,7 +50,7 @@ static void handle_new()
         pkt->IsYou = true;
         pkt->PlayerId = p.Id;
         NBN_OutgoingMessage *cm = NBN_GameServer_CreateMessage(
-                (uint8_t) NetType::ARRIVE, pkt);
+                (uint8_t) NetType::Arrive, pkt);
         NBN_GameServer_SendReliableMessageTo(c, cm);
     }
     // sync client list
@@ -61,7 +61,7 @@ static void handle_new()
 
         // to client
         NBN_OutgoingMessage *m = NBN_GameServer_CreateMessage(
-                (uint8_t) NetType::ARRIVE, pkt);
+                (uint8_t) NetType::Arrive, pkt);
         NBN_GameServer_SendReliableMessageTo(c, m);
 
         // to other
@@ -77,14 +77,19 @@ static int handle_message()
     return 0;
 }
 
+#define REGISTER(T) { \
+    NBN_GameServer_RegisterMessage((uint8_t) NetType::T,    \
+        (NBN_MessageBuilder)    Net##T::New,                \
+        (NBN_MessageDestructor) Net##T::Destroy,            \
+        (NBN_MessageSerializer) Net##T::Serialize);         \
+}
+
+
 int main()
 {
     NBN_GameServer_Init(NET_PROTO, NET_PORT);
 
-    NBN_GameServer_RegisterMessage((uint8_t) NetType::ARRIVE,
-            (NBN_MessageBuilder)    NetArrive::New,
-            (NBN_MessageDestructor) NetArrive::Destroy,
-            (NBN_MessageSerializer) NetArrive::Serialize);
+    REGISTER(Arrive);
 
     if (NBN_GameServer_Start() < 0) {
         NBN_LogError("Start failed.");

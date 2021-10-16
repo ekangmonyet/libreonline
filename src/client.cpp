@@ -24,7 +24,7 @@ Player *me = NULL;
 int handle_message()
 {
     NBN_MessageInfo msg_info = NBN_GameClient_GetMessageInfo();
-    if (msg_info.type != (uint8_t) NetType::ARRIVE)
+    if (msg_info.type != (uint8_t) NetType::Arrive)
         return 1;
     NetArrive *msg = (NetArrive *) msg_info.data;
 
@@ -43,7 +43,7 @@ int handle_message()
 int main()
 {
     NBN_GameClient_Init(NET_PROTO, "127.0.0.1", NET_PORT);
-    NBN_GameClient_RegisterMessage((uint8_t) NetType::ARRIVE,
+    NBN_GameClient_RegisterMessage((uint8_t) NetType::Arrive,
             (NBN_MessageBuilder)    NetArrive::New,
             (NBN_MessageDestructor) NetArrive::Destroy,
             (NBN_MessageSerializer) NetArrive::Serialize);

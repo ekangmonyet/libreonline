@@ -11,7 +11,7 @@
 
 
 enum class NetType {
-    ARRIVE = 0,
+    Arrive = 0,
 };
 
 class NetArrive {
@@ -22,23 +22,21 @@ public:
     static void Destroy(NetArrive *);
     static int Serialize(NetArrive *, NBN_Stream *);
 };
-#ifdef NET_IMPL
-NetArrive *NetArrive::New()
-{
-    return new NetArrive{};
-}
 
-void NetArrive::Destroy(NetArrive *n)
-{
-    delete n;
-}
+#ifdef NET_IMPL
+const unsigned int UINTMAX = std::numeric_limits<unsigned int>().max();
+
+
+NetArrive *NetArrive::New() { return new NetArrive{}; }
+void NetArrive::Destroy(NetArrive *n) { delete n; }
 
 int NetArrive::Serialize(NetArrive *n, NBN_Stream *s)
 {
-    NBN_SerializeUInt(s, n->PlayerId, 0, std::numeric_limits<unsigned int>().max());
+    NBN_SerializeUInt(s, n->PlayerId, 0, UINTMAX);
     NBN_SerializeBool(s, n->IsYou);
     return 0;
 }
+
 #endif
 
 
