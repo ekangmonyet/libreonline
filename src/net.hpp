@@ -19,6 +19,7 @@ public:
 
 enum class NetType {
     Arrive = 0,
+    Chat,
     Move,
     Leave,
     Login,
@@ -33,6 +34,15 @@ public:
     static NetArrive *New();
     static void Destroy(NetArrive *);
     static int Serialize(NetArrive *, NBN_Stream *);
+};
+
+class NetChat {
+public:
+    unsigned int PlayerId;
+    char Message[256];
+    static NetChat *New();
+    static void Destroy(NetChat *);
+    static int Serialize(NetChat *, NBN_Stream *);
 };
 
 class NetMove {
@@ -73,6 +83,17 @@ int NetArrive::Serialize(NetArrive *n, NBN_Stream *s)
     NBN_SerializeBool(s, n->IsYou);
     NBN_SerializeString(s, n->Name, 256);
     n->PosState.Serialize(s);
+    return 0;
+}
+
+
+NetChat *NetChat::New() { return new NetChat{}; }
+void NetChat::Destroy(NetChat *n) { delete n; }
+
+int NetChat::Serialize(NetChat *n, NBN_Stream *s)
+{
+    NBN_SerializeUInt(s, n->PlayerId, 0, UINTMAX);
+    NBN_SerializeString(s, n->Message, 256);
     return 0;
 }
 

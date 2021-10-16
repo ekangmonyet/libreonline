@@ -33,6 +33,29 @@ static int handle_message()
     // TODO: cleanup
     case NetType::Arrive:
         break;
+    case NetType::Chat:
+    {
+        // TODO: refactor
+        int playerId = -1;
+        for (auto c: clients)
+            if (c.C == msg_info.sender) {
+                playerId = c.PlayerId;
+                break;
+            }
+        if (playerId == -1)
+            break;
+
+        NetChat *pkt = (NetChat *) msg_info.data;
+        // sanitize
+        pkt->PlayerId = playerId;
+
+        // relay
+        NBN_OutgoingMessage *m = NBN_GameServer_CreateMessage(
+                (uint8_t) NetType::Chat, pkt);
+        for (auto c:clients)
+            NBN_GameServer_SendReliableMessageTo(c.C, m);
+        break;
+    }
     case NetType::Login:
     {
         NetLogin *l = (NetLogin *) msg_info.data;
@@ -133,6 +156,7 @@ int main()
     NBN_GameServer_Init(NET_PROTO, NET_PORT);
 
     REGISTER(Arrive);
+    REGISTER(Chat);
     REGISTER(Move);
     REGISTER(Leave);
     REGISTER(Login);

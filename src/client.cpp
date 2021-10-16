@@ -4,6 +4,8 @@
 #include <vector>
 
 #include "raylib.h"
+#define RAYGUI_IMPLEMENTATION
+#include "raygui.h"
 
 #define NET_IMPL
 #define NBN_LogInfo(...)    {puts("[NET/INFO] "); printf(__VA_ARGS__); putchar('\n');}
@@ -16,10 +18,14 @@
 #define GRAPHIC_IMPL
 #include "player.hpp"
 
+#include "gui.hpp"
+
 #define MS * 1000
 
 std::vector<Player *> activePlayers;
 Player *me = NULL;
+
+Chatbox chatbox;
 
 int handle_message()
 {
@@ -41,6 +47,20 @@ int handle_message()
             me = activePlayers.back();
             p->Tint = RED;
         }
+        break;
+    }
+    case NetType::Chat:
+    {
+        // TODO: we've used this one too many time, refactor
+        // consider case in NetLeave too
+        NetChat *msg = (NetChat *) msg_info.data;
+        Player *p = NULL;
+        for (auto player:activePlayers)
+            if (player->Id == msg->PlayerId) {
+                p = player;
+                break;
+            }
+        chatbox.Receive(p, msg->Message);
         break;
     }
     case NetType::Move:
@@ -94,6 +114,7 @@ int main(int argc, char **argv)
     NBN_GameClient_Init(NET_PROTO, "127.0.0.1", NET_PORT);
 
     REGISTER(Arrive);
+    REGISTER(Chat);
     REGISTER(Move);
     REGISTER(Leave);
     REGISTER(Login);
@@ -160,6 +181,8 @@ int main(int argc, char **argv)
     SetCameraMode(camera, CAMERA_THIRD_PERSON);
     SetTargetFPS(30);
 
+    int debounce = 0;
+
     while (!WindowShouldClose()) {
         int ev, err = 0;
         while ((ev = NBN_GameClient_Poll()) != NBN_NO_EVENT) {
@@ -184,7 +207,9 @@ int main(int argc, char **argv)
         if (err != 0)
             break;
 
-        {
+        chatbox.DoInput();
+
+        if (!chatbox.Active) {
             int forward = 0;
             if (IsKeyDown(KEY_W))
                 forward = 1;
@@ -233,6 +258,9 @@ int main(int argc, char **argv)
             p->Draw2D(camera);
 
         DrawFPS(10, 10);
+
+        chatbox.Draw2D();
+
         EndDrawing();
 
         NBN_GameClient_SendPackets();
