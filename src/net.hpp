@@ -21,12 +21,14 @@ enum class NetType {
     Arrive = 0,
     Move,
     Leave,
+    Login,
 };
 
 class NetArrive {
 public:
     unsigned int PlayerId;
     bool IsYou;
+    char Name[256];
     _PosState PosState;
     static NetArrive *New();
     static void Destroy(NetArrive *);
@@ -50,6 +52,14 @@ public:
     static int Serialize(NetLeave *, NBN_Stream *);
 };
 
+class NetLogin {
+public:
+    char Name[256];
+    static NetLogin *New();
+    static void Destroy(NetLogin *);
+    static int Serialize(NetLogin *, NBN_Stream *);
+};
+
 #ifdef NET_IMPL
 const unsigned int UINTMAX = std::numeric_limits<unsigned int>().max();
 
@@ -61,6 +71,7 @@ int NetArrive::Serialize(NetArrive *n, NBN_Stream *s)
 {
     NBN_SerializeUInt(s, n->PlayerId, 0, UINTMAX);
     NBN_SerializeBool(s, n->IsYou);
+    NBN_SerializeString(s, n->Name, 256);
     n->PosState.Serialize(s);
     return 0;
 }
@@ -83,6 +94,16 @@ void NetLeave::Destroy(NetLeave *n) { delete n; }
 int NetLeave::Serialize(NetLeave *n, NBN_Stream *s)
 {
     NBN_SerializeUInt(s, n->PlayerId, 0, UINTMAX);
+    return 0;
+}
+
+
+NetLogin *NetLogin::New() { return new NetLogin{}; }
+void NetLogin::Destroy(NetLogin *n) { delete n; }
+
+int NetLogin::Serialize(NetLogin *n, NBN_Stream *s)
+{
+    NBN_SerializeString(s, n->Name, 256);
     return 0;
 }
 

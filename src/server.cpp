@@ -26,65 +26,69 @@ static std::vector<Client> clients;
 
 static unsigned int ctr = 0;
 
-static void handle_new()
-{
-    NBN_Connection *c = NBN_GameServer_GetIncomingConnection();
-    NBN_GameServer_AcceptIncomingConnection();
-
-    std::cout << "Client connected: " << c->id << std::endl;
-    auto p = Player();
-    p.Id = ctr++;
-
-    NBN_OutgoingMessage *om;
-    {
-        NetArrive *pkt = NetArrive::New();
-        pkt->IsYou = false;
-        pkt->PlayerId = p.Id;
-        om = NBN_GameServer_CreateMessage(
-                (uint8_t) NetType::Arrive, pkt);
-    }
-
-    {
-        // to client
-        NetArrive *pkt = NetArrive::New();
-        pkt->IsYou = true;
-        pkt->PlayerId = p.Id;
-        NBN_OutgoingMessage *cm = NBN_GameServer_CreateMessage(
-                (uint8_t) NetType::Arrive, pkt);
-        NBN_GameServer_SendReliableMessageTo(c, cm);
-    }
-    // sync client list
-    for (auto other:clients) {
-        NetArrive *pkt = NetArrive::New();
-        pkt->IsYou = false;
-        pkt->PlayerId = other.PlayerId;
-        Player& p = players[other.PlayerId];
-        pkt->PosState = {
-            .X = p.Position.x,
-            .Y = p.Position.y,
-            .Z = p.Position.z,
-            .Rot = (unsigned int) p.Rotation,
-        };
-
-        // to client
-        NBN_OutgoingMessage *m = NBN_GameServer_CreateMessage(
-                (uint8_t) NetType::Arrive, pkt);
-        NBN_GameServer_SendReliableMessageTo(c, m);
-
-        // to other
-        NBN_GameServer_SendReliableMessageTo(other.C, om);
-    }
-
-    players.push_back(p);
-    clients.push_back(Client{c, p.Id});
-}
-
 static int handle_message()
 {
     NBN_MessageInfo msg_info = NBN_GameServer_GetMessageInfo();
     switch((NetType) msg_info.type) {
+    // TODO: cleanup
     case NetType::Arrive:
         break;
+    case NetType::Login:
+    {
+        NetLogin *l = (NetLogin *) msg_info.data;
+        auto p = Player();
+        p.Id = ctr++;
+        p.Name = std::string(l->Name);
+
+        NBN_OutgoingMessage *om;
+        {
+            NetArrive *pkt = NetArrive::New();
+            pkt->IsYou = false;
+            pkt->PlayerId = p.Id;
+            strcpy(pkt->Name, l->Name); // TODO: not use this?
+            om = NBN_GameServer_CreateMessage(
+                    (uint8_t) NetType::Arrive, pkt);
+        }
+
+        {
+            // to client
+            NetArrive *pkt = NetArrive::New();
+            pkt->IsYou = true;
+            pkt->PlayerId = p.Id;
+            strcpy(pkt->Name, l->Name);
+            NBN_OutgoingMessage *cm = NBN_GameServer_CreateMessage(
+                    (uint8_t) NetType::Arrive, pkt);
+            NBN_GameServer_SendReliableMessageTo(msg_info.sender, cm);
+        }
+        // sync client list
+        for (auto other:clients) {
+            NetArrive *pkt = NetArrive::New();
+            pkt->IsYou = false;
+            pkt->PlayerId = other.PlayerId;
+            Player& p = players[other.PlayerId];
+            strcpy(pkt->Name, p.Name.c_str());
+            pkt->PosState = {
+                .X = p.Position.x,
+                .Y = p.Position.y,
+                .Z = p.Position.z,
+                .Rot = (unsigned int) p.Rotation,
+            };
+
+            // to client
+            NBN_OutgoingMessage *m = NBN_GameServer_CreateMessage(
+                    (uint8_t) NetType::Arrive, pkt);
+            NBN_GameServer_SendReliableMessageTo(msg_info.sender, m);
+
+            // to other
+            NBN_GameServer_SendReliableMessageTo(other.C, om);
+        }
+
+        // TODO: another list for not-yet logged in client?
+        players.push_back(p);
+        clients.push_back(Client{msg_info.sender, p.Id});
+
+        break;
+    }
     case NetType::Move:
     {
         int playerId = -1;
@@ -131,6 +135,7 @@ int main()
     REGISTER(Arrive);
     REGISTER(Move);
     REGISTER(Leave);
+    REGISTER(Login);
 
     if (NBN_GameServer_Start() < 0) {
         NBN_LogError("Start failed.");
@@ -147,8 +152,11 @@ int main()
 
             switch (ev) {
             case NBN_NEW_CONNECTION:
-                handle_new();
+            {
+                NBN_GameServer_AcceptIncomingConnection();
+
                 break;
+            }
             case NBN_CLIENT_DISCONNECTED:
             {
                 int i = -1;

@@ -3,6 +3,8 @@
 
 #include "raylib.h"
 
+#include <string>
+
 typedef unsigned int PlayerID;
 
 class Player
@@ -10,6 +12,7 @@ class Player
     Texture2D texture;
 public:
     PlayerID Id;
+    std::string Name;
     Vector3 Position;
     int Rotation;
 #ifdef BASIC_IMPL
@@ -31,6 +34,17 @@ public:
     {
         DrawModelEx(M, Position, {0.0f, 1.0f, 0.0f}, Rotation,
                     {1.0f, 1.0f, 1.0f}, Tint);
+    }
+
+    void Draw2D(Camera& cam)
+    {
+        Vector2 textPos = GetWorldToScreen(
+                Vector3{Position.x, Position.y + 6.0f, Position.z},
+                cam);
+        int w = MeasureText(Name.c_str(), 24);
+
+        DrawText(Name.c_str(), textPos.x - w / 2, textPos.y, 24, BLACK);
+        DrawText(Name.c_str(), textPos.x - w / 2 - 3, textPos.y - 3, 24, WHITE);
     }
 #endif
 };

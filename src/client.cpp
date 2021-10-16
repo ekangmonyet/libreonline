@@ -32,6 +32,7 @@ int handle_message()
         auto p = new Player();
         activePlayers.push_back(p);
         p->Id = msg->PlayerId;
+        p->Name = std::string(msg->Name);
         _PosState *pos = &msg->PosState;
         p->Position = {pos->X, pos->Y, pos->Z};
         p->Rotation = pos->Rot;
@@ -72,6 +73,9 @@ int handle_message()
         activePlayers.erase(activePlayers.begin() + i);
         break;
     }
+    // Shouldnt receive these at all:
+    case NetType::Login:
+        break;
     }
 
     return 0;
@@ -85,13 +89,14 @@ int handle_message()
 }
 
 
-int main()
+int main(int argc, char **argv)
 {
     NBN_GameClient_Init(NET_PROTO, "127.0.0.1", NET_PORT);
 
     REGISTER(Arrive);
     REGISTER(Move);
     REGISTER(Leave);
+    REGISTER(Login);
 
     if (NBN_GameClient_Start() < 0) {
         NBN_LogError("Start failed.");
@@ -99,6 +104,13 @@ int main()
     }
 
     // TODO: Check for connection!
+    {
+        NetLogin *pkt = NetLogin::New();
+        strcpy(pkt->Name, argv[1]);
+        NBN_OutgoingMessage *msg = NBN_GameClient_CreateMessage(
+                (uint8_t) NetType::Login, pkt);
+        NBN_GameClient_SendReliableMessage(msg);
+    }
     NBN_GameClient_SendPackets();
 
     SetTraceLogLevel(LOG_WARNING);
@@ -216,6 +228,10 @@ int main()
 
         DrawGrid(100, 1.0f);
         EndMode3D();
+
+        for (auto p:activePlayers)
+            p->Draw2D(camera);
+
         DrawFPS(10, 10);
         EndDrawing();
 
