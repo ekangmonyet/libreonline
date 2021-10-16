@@ -1,12 +1,11 @@
 #include <cmath>
 #include <iostream>
 #include <unistd.h>
+#include <vector>
 
 #include "raylib.h"
 
-#define IMPLEMENTATION
-#include "player.hpp"
-
+#define NET_IMPL
 #define NBN_LogInfo(...)    {puts("[NET/INFO] "); printf(__VA_ARGS__); putchar('\n');}
 #define NBN_LogDebug(...)   {puts("[NET/DEBUG] "); printf(__VA_ARGS__); putchar('\n');}
 #define NBN_LogError(...)   {puts("[NET/ERROR] "); printf(__VA_ARGS__); putchar('\n');}
@@ -14,14 +13,30 @@
 #define NBNET_IMPL
 #include "net.hpp"
 
+#define GRAPHIC_IMPL
+#include "player.hpp"
+
 #define MS * 1000
+
+std::vector<Player *> activePlayers;
+Player *me = NULL;
 
 int handle_message()
 {
     NBN_MessageInfo msg_info = NBN_GameClient_GetMessageInfo();
     if (msg_info.type != (uint8_t) NetType::ARRIVE)
         return 1;
-    std::cout << "ARRIVE" <<std::endl;
+    NetArrive *msg = (NetArrive *) msg_info.data;
+
+    auto p = new Player();
+    activePlayers.push_back(p);
+    p->Id = msg->PlayerId;
+
+    if (msg->IsYou) {
+        me = activePlayers.back();
+        p->Tint = RED;
+    }
+
     return 0;
 }
 
@@ -39,18 +54,42 @@ int main()
     }
 
     // TODO: Check for connection!
-
-    NetArrive *pkt = NetArrive::New();
-    NBN_OutgoingMessage *msg = NBN_GameClient_CreateMessage(
-            (uint8_t) NetType::ARRIVE, pkt);
-    NBN_GameClient_SendReliableMessage(msg);
     NBN_GameClient_SendPackets();
-
-    std::cout << "Finished" << std::endl;
 
     SetTraceLogLevel(LOG_WARNING);
 
     InitWindow(1280, 720, "libreONLINE");
+
+    // Wait for us
+    {
+        int ev, err = 0;
+        while (!me) {
+            if ((ev = NBN_GameClient_Poll()) == NBN_NO_EVENT) {
+                usleep(100 MS);
+                continue;
+            }
+
+            if (ev < 0) {
+                NBN_LogError("Poll failed.");
+                err = 1;
+                break;
+            }
+            switch (ev) {
+            case NBN_DISCONNECTED:
+                NBN_LogError("Disconnected.");
+                err = 1;
+                break;
+            case NBN_MESSAGE_RECEIVED:
+                handle_message();
+                break;
+            }
+            if (err != 0)
+                break;
+        }
+        if (err != 0)
+            return 1;
+    }
+
     Camera camera {
         .position = {20.0f, 20.0f, 20.0f},
         .target = {0.0f, 0.0f, 0.0f},
@@ -59,8 +98,7 @@ int main()
         .projection = CAMERA_PERSPECTIVE,
     };
 
-    Player player;
-    camera.target = player.Position;
+    camera.target = me->Position;
 
     SetCameraMode(camera, CAMERA_THIRD_PERSON);
     SetTargetFPS(30);
@@ -89,25 +127,26 @@ int main()
         if (err != 0)
             break;
 
-        int forward = 0;
-        if (IsKeyDown(KEY_W))
-            forward = 1;
-        if (IsKeyDown(KEY_S))
-            forward = -1;
-        if (IsKeyDown(KEY_A))
-            player.Rotation = (player.Rotation + 10) % 360;
-        if (IsKeyDown(KEY_D)) {
-            player.Rotation -= 10;
-            if (player.Rotation < 0)
-                player.Rotation += 360;
+        {
+            int forward = 0;
+            if (IsKeyDown(KEY_W))
+                forward = 1;
+            if (IsKeyDown(KEY_S))
+                forward = -1;
+            if (IsKeyDown(KEY_A))
+                me->Rotation = (me->Rotation + 10) % 360;
+            if (IsKeyDown(KEY_D)) {
+                me->Rotation -= 10;
+                if (me->Rotation < 0)
+                    me->Rotation += 360;
+            }
+
+            me->Position.x += forward * 1.0f
+                * std::cos((float) me->Rotation * PI / 180.0f);
+            me->Position.z -= forward * 1.0f
+                * std::sin((float) me->Rotation * PI / 180.0f);
         }
-
-        player.Position.x += forward * 1.0f
-            * std::cos((float) player.Rotation * PI / 180.0f);
-        player.Position.z -= forward * 1.0f
-            * std::sin((float) player.Rotation * PI / 180.0f);
-
-        camera.target = player.Position;
+        camera.target = me->Position;
 
         UpdateCamera(&camera);
 
@@ -115,7 +154,8 @@ int main()
         BeginMode3D(camera);
         ClearBackground(RAYWHITE);
 
-        player.Draw();
+        for (auto p:activePlayers)
+            p->Draw();
 
         DrawGrid(100, 1.0f);
         EndMode3D();

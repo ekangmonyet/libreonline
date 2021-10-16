@@ -2,41 +2,78 @@
 #include <unistd.h>
 #include <vector>
 
+#define NET_IMPL
 #define NBN_LogInfo(...)    {puts("[NET/INFO] "); printf(__VA_ARGS__); putchar('\n');}
 #define NBN_LogDebug(...)   {puts("[NET/DEBUG] "); printf(__VA_ARGS__); putchar('\n');}
 #define NBN_LogError(...)   {puts("[NET/ERROR] "); printf(__VA_ARGS__); putchar('\n');}
 #define NBN_LogTrace(...)   {}
-#define IMPLEMENTATION
 #define NBNET_IMPL
 #include "net.hpp"
 
+#define BASIC_IMPL
+#include "player.hpp"
+
 #define MS * 1000
 
-static std::vector<NBN_Connection *> clients;
+class Client {
+public:
+    NBN_Connection *C;
+    unsigned int PlayerId;
+};
+
+static std::vector<Player> players;
+static std::vector<Client> clients;
+
+static unsigned int ctr = 0;
+
+static void handle_new()
+{
+    NBN_Connection *c = NBN_GameServer_GetIncomingConnection();
+    NBN_GameServer_AcceptIncomingConnection();
+
+    std::cout << "Client connected: " << c->id << std::endl;
+    auto p = Player();
+    p.Id = ctr++;
+
+    NBN_OutgoingMessage *om;
+    {
+        NetArrive *pkt = NetArrive::New();
+        pkt->IsYou = false;
+        pkt->PlayerId = p.Id;
+        om = NBN_GameServer_CreateMessage(
+                (uint8_t) NetType::ARRIVE, pkt);
+    }
+
+    {
+        // to client
+        NetArrive *pkt = NetArrive::New();
+        pkt->IsYou = true;
+        pkt->PlayerId = p.Id;
+        NBN_OutgoingMessage *cm = NBN_GameServer_CreateMessage(
+                (uint8_t) NetType::ARRIVE, pkt);
+        NBN_GameServer_SendReliableMessageTo(c, cm);
+    }
+    // sync client list
+    for (auto other:clients) {
+        NetArrive *pkt = NetArrive::New();
+        pkt->IsYou = false;
+        pkt->PlayerId = other.PlayerId;
+
+        // to client
+        NBN_OutgoingMessage *m = NBN_GameServer_CreateMessage(
+                (uint8_t) NetType::ARRIVE, pkt);
+        NBN_GameServer_SendReliableMessageTo(c, m);
+
+        // to other
+        NBN_GameServer_SendReliableMessageTo(other.C, om);
+    }
+
+    players.push_back(p);
+    clients.push_back(Client{c, p.Id});
+}
 
 static int handle_message()
 {
-    NBN_MessageInfo msg_info = NBN_GameServer_GetMessageInfo();
-    if (msg_info.type != (uint8_t) NetType::ARRIVE)
-        return 1;
-    std::cout << "ARRIVE: " << msg_info.sender->id <<std::endl;
-
-
-    NetArrive *rpkt = NetArrive::New();
-
-    for (auto c: clients) {
-        if (c == msg_info.sender)
-            continue;
-        NBN_OutgoingMessage *relay = NBN_GameServer_CreateMessage(
-                (uint8_t) NetType::ARRIVE, rpkt);
-        // announce to other client
-        NBN_GameServer_SendReliableMessageTo(c, relay);
-        // announce other client
-        NetArrive *pkt = NetArrive::New();
-        NBN_OutgoingMessage *msg = NBN_GameServer_CreateMessage(
-                (uint8_t) NetType::ARRIVE, pkt);
-        NBN_GameServer_SendReliableMessageTo(msg_info.sender, msg);
-    }
     return 0;
 }
 
@@ -64,23 +101,18 @@ int main()
 
             switch (ev) {
             case NBN_NEW_CONNECTION:
-            {
-                NBN_Connection *c = NBN_GameServer_GetIncomingConnection();
-                std::cout << "Client connected: " << c->id << std::endl;
-                clients.push_back(c);
-                NBN_GameServer_AcceptIncomingConnection();
+                handle_new();
                 break;
-            }
             case NBN_CLIENT_DISCONNECTED:
             {
                 int i = -1;
                 for (auto c:clients) {
                     i++;
-                    if (c->id != NBN_GameServer_GetDisconnectedClient()->id)
+                    if (c.C->id != NBN_GameServer_GetDisconnectedClient()->id)
                         break;
                 }
                 if (i != -1) {
-                    std::cout << "Client gone: " << clients[i]->id << std::endl;
+                    std::cout << "Client gone: " << clients[i].C->id << std::endl;
                     clients.erase(clients.begin() + i);
                 }
                 break;
