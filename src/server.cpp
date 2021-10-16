@@ -153,7 +153,7 @@ int main()
                 int i = -1;
                 for (auto c:clients) {
                     i++;
-                    if (c.C->id != NBN_GameServer_GetDisconnectedClient()->id)
+                    if (c.C->id == NBN_GameServer_GetDisconnectedClient()->id)
                         break;
                 }
                 if (i != -1) {
