@@ -27,6 +27,7 @@ Player *me = NULL;
 
 Chatbox chatbox;
 
+
 int handle_message()
 {
     NBN_MessageInfo msg_info = NBN_GameClient_GetMessageInfo();
@@ -124,29 +125,16 @@ int main(int argc, char **argv)
         NBN_GameClient_Deinit();
     }
 
-    // TODO: Check for connection!
-    {
-        NetLogin *pkt = NetLogin::New();
-        strcpy(pkt->Name, argv[1]);
-        NBN_OutgoingMessage *msg = NBN_GameClient_CreateMessage(
-                (uint8_t) NetType::Login, pkt);
-        NBN_GameClient_SendReliableMessage(msg);
-    }
-    NBN_GameClient_SendPackets();
-
     SetTraceLogLevel(LOG_WARNING);
 
     InitWindow(1280, 720, "libreONLINE");
 
-    // Wait for us
-    {
-        int ev, err = 0;
-        while (!me) {
-            if ((ev = NBN_GameClient_Poll()) == NBN_NO_EVENT) {
-                usleep(100 MS);
-                continue;
-            }
+    char username[256];
+    bool entered = false;
 
+    while (!WindowShouldClose() && !me) {
+        int ev, err = 0;
+        while ((ev = NBN_GameClient_Poll()) != NBN_NO_EVENT) {
             if (ev < 0) {
                 NBN_LogError("Poll failed.");
                 err = 1;
@@ -165,7 +153,36 @@ int main(int argc, char **argv)
                 break;
         }
         if (err != 0)
-            return 1;
+            break;
+
+        BeginDrawing();
+        ClearBackground(WHITE);
+        if (!entered) {
+            if (GuiTextInputBox(Rectangle{300, 300, 400, 300},
+                                "Login", "Enter a name:", "Login",
+                                username) == 1) {
+                NetLogin *pkt = NetLogin::New();
+                strcpy(pkt->Name, username);
+                NBN_OutgoingMessage *msg = NBN_GameClient_CreateMessage(
+                        (uint8_t) NetType::Login, pkt);
+                NBN_GameClient_SendReliableMessage(msg);
+
+                entered = true;
+            }
+        } else {
+            DrawText("Waiting for server...", 300, 300, 36, BLACK);
+        }
+
+        EndDrawing();
+        NBN_GameClient_SendPackets();
+    }
+
+    if (!me) {
+        // not yet logged in and window should be closed/errored, exit:
+        CloseWindow();
+        NBN_GameClient_Disconnect();
+        NBN_GameClient_Stop();
+        return 1;
     }
 
     Camera camera {
