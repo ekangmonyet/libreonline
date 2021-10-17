@@ -11,6 +11,7 @@ set(CMAKE_BUILD_TYPE debug)
 
 add_executable(libreonline
                     src/client.cpp
+                    src/net.cpp
                     )
 
 target_link_libraries(libreonline

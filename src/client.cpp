@@ -7,17 +7,10 @@
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 
-#define NET_IMPL
-#define NBN_LogInfo(...)    {puts("[NET/INFO] "); printf(__VA_ARGS__); putchar('\n');}
-#define NBN_LogDebug(...)   {puts("[NET/DEBUG] "); printf(__VA_ARGS__); putchar('\n');}
-#define NBN_LogError(...)   {puts("[NET/ERROR] "); printf(__VA_ARGS__); putchar('\n');}
-#define NBN_LogTrace(...)   {}
-#define NBNET_IMPL
-#include "net.hpp"
-
 #define GRAPHIC_IMPL
 #include "player.hpp"
 
+#include "net.hpp"
 #include "gui.hpp"
 
 #define MS * 1000
@@ -28,13 +21,12 @@ Player *me = NULL;
 Chatbox chatbox;
 
 
-int handle_message()
+int handle_message(NetType t, void *data)
 {
-    NBN_MessageInfo msg_info = NBN_GameClient_GetMessageInfo();
-    switch ((NetType) msg_info.type) {
+    switch (t) {
     case NetType::Arrive:
     {
-        NetArrive *msg = (NetArrive *) msg_info.data;
+        NetArrive *msg = (NetArrive *) data;
 
         auto p = new Player();
         activePlayers.push_back(p);
@@ -54,7 +46,7 @@ int handle_message()
     {
         // TODO: we've used this one too many time, refactor
         // consider case in NetLeave too
-        NetChat *msg = (NetChat *) msg_info.data;
+        NetChat *msg = (NetChat *) data;
         Player *p = NULL;
         for (auto player:activePlayers)
             if (player->Id == msg->PlayerId) {
@@ -66,7 +58,7 @@ int handle_message()
     }
     case NetType::Move:
     {
-        NetMove *msg = (NetMove *) msg_info.data;
+        NetMove *msg = (NetMove *) data;
 
         Player *p = NULL;
         for (auto player:activePlayers)
@@ -82,7 +74,7 @@ int handle_message()
     }
     case NetType::Leave:
     {
-        NetMove *msg = (NetMove *) msg_info.data;
+        NetMove *msg = (NetMove *) data;
 
         int i = -1;
         for (auto player:activePlayers) {
@@ -102,28 +94,11 @@ int handle_message()
     return 0;
 }
 
-#define REGISTER(T) { \
-    NBN_GameClient_RegisterMessage((uint8_t) NetType::T,    \
-        (NBN_MessageBuilder)    Net##T::New,                \
-        (NBN_MessageDestructor) Net##T::Destroy,            \
-        (NBN_MessageSerializer) Net##T::Serialize);         \
-}
 
 
 int main(int argc, char **argv)
 {
-    NBN_GameClient_Init(NET_PROTO, "127.0.0.1", NET_PORT);
-
-    REGISTER(Arrive);
-    REGISTER(Chat);
-    REGISTER(Move);
-    REGISTER(Leave);
-    REGISTER(Login);
-
-    if (NBN_GameClient_Start() < 0) {
-        NBN_LogError("Start failed.");
-        NBN_GameClient_Deinit();
-    }
+    Net_Init();
 
     SetTraceLogLevel(LOG_WARNING);
 
@@ -134,23 +109,14 @@ int main(int argc, char **argv)
 
     while (!WindowShouldClose() && !me) {
         int ev, err = 0;
-        while ((ev = NBN_GameClient_Poll()) != NBN_NO_EVENT) {
-            if (ev < 0) {
-                NBN_LogError("Poll failed.");
+        NetType t; void *data;
+        while ((ev = Net_Poll(&t, &data)) != Net_NO_EVENT) {
+            if (ev < 0 || ev == Net_DISCONNECTED) {
                 err = 1;
                 break;
             }
-            switch (ev) {
-            case NBN_DISCONNECTED:
-                NBN_LogError("Disconnected.");
-                err = 1;
-                break;
-            case NBN_MESSAGE_RECEIVED:
-                handle_message();
-                break;
-            }
-            if (err != 0)
-                break;
+            if (ev == Net_MESSAGE_RECEIVED)
+                handle_message(t, data);
         }
         if (err != 0)
             break;
@@ -161,11 +127,9 @@ int main(int argc, char **argv)
             if (GuiTextInputBox(Rectangle{300, 300, 400, 300},
                                 "Login", "Enter a name:", "Login",
                                 username) == 1) {
-                NetLogin *pkt = NetLogin::New();
+                auto pkt = new NetLogin();
                 strcpy(pkt->Name, username);
-                NBN_OutgoingMessage *msg = NBN_GameClient_CreateMessage(
-                        (uint8_t) NetType::Login, pkt);
-                NBN_GameClient_SendReliableMessage(msg);
+                Net_Queue(NetType::Login, pkt);
 
                 entered = true;
             }
@@ -174,14 +138,13 @@ int main(int argc, char **argv)
         }
 
         EndDrawing();
-        NBN_GameClient_SendPackets();
+        Net_Send();
     }
 
     if (!me) {
         // not yet logged in and window should be closed/errored, exit:
         CloseWindow();
-        NBN_GameClient_Disconnect();
-        NBN_GameClient_Stop();
+        Net_Deinit();
         return 1;
     }
 
@@ -202,25 +165,15 @@ int main(int argc, char **argv)
 
     while (!WindowShouldClose()) {
         int ev, err = 0;
-        while ((ev = NBN_GameClient_Poll()) != NBN_NO_EVENT) {
-            if (ev < 0) {
-                NBN_LogError("Poll failed.");
+        NetType t; void *data;
+        while ((ev = Net_Poll(&t, &data)) != Net_NO_EVENT) {
+            if (ev < 0 || ev == Net_DISCONNECTED) {
                 err = 1;
                 break;
             }
-            switch (ev) {
-            case NBN_DISCONNECTED:
-                NBN_LogError("Disconnected.");
-                err = 1;
-                break;
-            case NBN_MESSAGE_RECEIVED:
-                handle_message();
-                break;
-            }
-            if (err != 0)
-                break;
+            if (ev == Net_MESSAGE_RECEIVED)
+                handle_message(t, data);
         }
-
         if (err != 0)
             break;
 
@@ -246,16 +199,14 @@ int main(int argc, char **argv)
                 * std::sin((float) me->Rotation * PI / 180.0f);
 
             // announce movement
-            NetMove *pkt = NetMove::New();
+            auto pkt = new NetMove();
             pkt->PosState = {
                 .X = me->Position.x,
                 .Y = me->Position.y,
                 .Z = me->Position.z,
                 .Rot = (unsigned int) me->Rotation,
             };
-            NBN_OutgoingMessage *msg = NBN_GameClient_CreateMessage(
-                    (uint8_t) NetType::Move, pkt);
-            NBN_GameClient_SendReliableMessage(msg);
+            Net_Queue(NetType::Move, pkt);
         }
         camera.target = me->Position;
 
@@ -280,13 +231,12 @@ int main(int argc, char **argv)
 
         EndDrawing();
 
-        NBN_GameClient_SendPackets();
+        Net_Send();
     }
 
     CloseWindow();
 
-    NBN_GameClient_Disconnect();
-    NBN_GameClient_Stop();
+    Net_Deinit();
 
     return 0;
 }

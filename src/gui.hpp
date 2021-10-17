@@ -1,3 +1,4 @@
+#include <cstring>
 #include <deque>
 #include <string>
 
@@ -14,11 +15,9 @@ private:
 
     int send()
     {
-        NetChat *pkt = NetChat::New();
+        auto pkt = new NetChat();
         strcpy(pkt->Message, Input);
-        NBN_OutgoingMessage *msg = NBN_GameClient_CreateMessage(
-                (uint8_t) NetType::Chat, pkt);
-        NBN_GameClient_SendReliableMessage(msg);
+        Net_Queue(NetType::Chat, pkt);
         return 0;
     }
 public:

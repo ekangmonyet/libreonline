@@ -1,11 +1,6 @@
 #ifndef __LO_INC_COMMON_HPP
 #define __LO_INC_COMMON_HPP
 
-#include "nbnet/nbnet.h"
-#include "nbnet/net_drivers/udp.h"
-
-#include <limits>
-
 #define NET_PROTO   "LIBREONLINE0.1"
 #define NET_PORT    8787
 
@@ -14,7 +9,9 @@ class _PosState {
 public:
     float X, Y, Z;
     unsigned int Rot;
+#ifdef NET_IMPL
     void Serialize(NBN_Stream *);
+#endif
 };
 
 enum class NetType {
@@ -31,48 +28,57 @@ public:
     bool IsYou;
     char Name[256];
     _PosState PosState;
+#ifdef NET_IMPL
     static NetArrive *New();
     static void Destroy(NetArrive *);
     static int Serialize(NetArrive *, NBN_Stream *);
+#endif
 };
 
 class NetChat {
 public:
     unsigned int PlayerId;
     char Message[256];
+#ifdef NET_IMPL
     static NetChat *New();
     static void Destroy(NetChat *);
     static int Serialize(NetChat *, NBN_Stream *);
+#endif
 };
 
 class NetMove {
 public:
     unsigned int PlayerId;
     _PosState PosState;
+#ifdef NET_IMPL
     static NetMove *New();
     static void Destroy(NetMove *);
     static int Serialize(NetMove *, NBN_Stream *);
+#endif
 };
 
 class NetLeave {
 public:
     unsigned int PlayerId;
+#ifdef NET_IMPL
     static NetLeave *New();
     static void Destroy(NetLeave *);
     static int Serialize(NetLeave *, NBN_Stream *);
+#endif
 };
 
 class NetLogin {
 public:
     char Name[256];
+#ifdef NET_IMPL
     static NetLogin *New();
     static void Destroy(NetLogin *);
     static int Serialize(NetLogin *, NBN_Stream *);
+#endif
 };
 
 #ifdef NET_IMPL
 const unsigned int UINTMAX = std::numeric_limits<unsigned int>().max();
-
 
 NetArrive *NetArrive::New() { return new NetArrive{}; }
 void NetArrive::Destroy(NetArrive *n) { delete n; }
@@ -136,7 +142,18 @@ void _PosState::Serialize(NBN_Stream *s)
     NBN_SerializeFloat(s, Z, -99999.0f, 99999.0f, 3);
     NBN_SerializeUInt(s, Rot, 0, 360);
 }
+
 #endif
 
+enum {
+    Net_NO_EVENT = 0,
+    Net_DISCONNECTED,
+    Net_MESSAGE_RECEIVED,
+};
 
+int Net_Init();
+int Net_Poll(NetType *t, void **data);
+void Net_Queue(NetType t, void *pkt);
+void Net_Send();
+void Net_Deinit();
 #endif

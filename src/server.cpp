@@ -8,6 +8,8 @@
 #define NBN_LogError(...)   {puts("[NET/ERROR] "); printf(__VA_ARGS__); putchar('\n');}
 #define NBN_LogTrace(...)   {}
 #define NBNET_IMPL
+#include "nbnet/nbnet.h"
+#include "nbnet/net_drivers/udp.h"
 #include "net.hpp"
 
 #define BASIC_IMPL
