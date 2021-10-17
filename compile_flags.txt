@@ -1,2 +1,0 @@
--Iraylib/include
--Inbnet/include
