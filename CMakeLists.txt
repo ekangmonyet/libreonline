@@ -8,17 +8,16 @@ include_directories(raylib/include
 
 set(CMAKE_BUILD_TYPE debug)
 
+pkg_check_modules(RAYLIB REQUIRED raylib)
+
 
 add_executable(libreonline
                     src/client.cpp
                     )
 
 target_link_libraries(libreonline
-                    ${CMAKE_SOURCE_DIR}/raylib/lib/libraylib.a
+                    ${RAYLIB_LIBRARIES}
                     dl
                     pthread
                     )
 
-add_executable(loserver
-                    src/server.cpp
-                    )
